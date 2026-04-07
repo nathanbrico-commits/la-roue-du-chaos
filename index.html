@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>La Roue du Chaos 🎰</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap"
+    rel="stylesheet">
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, set, get, onValue, update, push, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyA4ZhDGQBcyk9rJ4TDOUIEjNypeg8P68iM",
+      authDomain: "electronique-4d008.firebaseapp.com",
+      databaseURL: "https://electronique-4d008-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "electronique-4d008",
+      storageBucket: "electronique-4d008.firebasestorage.app",
+      messagingSenderId: "859135909757",
+      appId: "1:859135909757:web:2ddfe851621f6f36d9b614"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // ─── State ───────────────────────────────────────────────
+    let roomCode = null;
+    let myName = null;
+    let isHost = false;
+    let wheelAngle = 0;
+    let spinning = false;
+    let unsubscribe = null;
+
+    const COLORS = ['#ff3366', '#ff6600', '#ffcc00', '#00ffaa', '#00aaff', '#aa00ff', '#ff0099', '#33ff66'];
+
+    // ─── DOM helpers ─────────────────────────────────────────
+    const $ = id => document.getElementById(id);
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      $(id).classList.add('active');
+    }
+
+    // ─── Room code generator ──────────────────────────────────
+    function genCode() {
+      return Math.random().toString(36).substring(2, 6).toUpperCase();
+    }
+
+    // ─── CREATE ROOM ─────────────────────────────────────────
+    window.createRoom = async function () {
+      const name = $('hostName').value.trim();
+      if (!name) { alert('Entre ton prénom !'); return; }
+      myName = name;
+      isHost = true;
+      roomCode = genCode();
+
+      const myToken = Math.random().toString(36).substring(2, 10);
+
+      await set(ref(db, `rooms/${roomCode}`), {
+        phase: 1,
+        host: name,
+        players: { [name]: { name, score: 0, submitted: false, token: myToken } },
+        submissions: {},
+        result: null,
+        rounds: 0
+      });
+
+      $('roomCodeDisplay').textContent = roomCode;
+      $('myNameDisplay').textContent = name;
+
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.set('room', roomCode);
+      newUrl.searchParams.set('name', name);
+      newUrl.searchParams.set('token', myToken);
+      window.history.replaceState({}, '', newUrl);
+
+      showScreen('lobbyScreen');
+      listenRoom();
+    }
+
+    // ─── JOIN ROOM ────────────────────────────────────────────
+    window.joinRoom = async function () {
+      const name = $('joinName').value.trim();
+      const code = $('joinCode').value.trim().toUpperCase();
+      if (!name || !code) { alert('Remplis ton prénom et le code !'); return; }
+
+      const snap = await get(ref(db, `rooms/${code}`));
+      if (!snap.exists()) { alert('Salon introuvable !'); return; }
+      const room = snap.val();
+      const isRejoining = room.players && room.players[name];
+      
+      const urlToken = new URLSearchParams(window.location.search).get('token');
+      let myToken = urlToken;
+
+      if (isRejoining && room.players[name].token !== urlToken) {
+        alert('⛔ Ce prénom est déjà utilisé par un joueur actif !');
+        return;
+      }
+
+      if (!isRejoining && room.phase !== 1) { alert('La partie a déjà commencé !'); return; }
+      if (!isRejoining && room.players && room.players[name]) { alert('Ce prénom est déjà pris !'); return; }
+
+      myName = name;
+      roomCode = code;
+
+      if (isRejoining) {
+        isHost = (room.host === name);
+      } else {
+        isHost = false;
+        myToken = Math.random().toString(36).substring(2, 10);
+        await update(ref(db, `rooms/${code}/players/${name}`), { name, score: 0, submitted: false, readyNext: false, token: myToken });
+      }
+
+      $('roomCodeDisplay').textContent = roomCode;
+      $('myNameDisplay').textContent = name;
+
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.set('room', roomCode);
+      newUrl.searchParams.set('name', name);
+      newUrl.searchParams.set('token', myToken);
+      window.history.replaceState({}, '', newUrl);
+
+      showScreen('lobbyScreen');
+      listenRoom();
+    }
+
+    // ─── LISTEN TO ROOM ───────────────────────────────────────
+    function listenRoom() {
+      if (unsubscribe) unsubscribe();
+      const roomRef = ref(db, `rooms/${roomCode}`);
+      unsubscribe = onValue(roomRef, snap => {
+        if (!snap.exists()) {
+          if (roomCode) {
+            alert("Le salon a été fermé !");
+            location.reload();
+          }
+          return;
+        }
+        const room = snap.val();
+        syncUI(room);
+      });
+    }
+
+    function syncUI(room) {
+      if (myName && (!room.players || !room.players[myName])) {
+        // Kicked from the room (e.g. didn't hit Replay)
+        const newUrl = new URL(window.location);
+        newUrl.searchParams.delete('room');
+        newUrl.searchParams.delete('name');
+        window.history.replaceState({}, '', newUrl);
+        location.reload();
+        return;
+      }
+
+      const players = room.players ? Object.values(room.players) : [];
+      const subs = room.submissions ? Object.values(room.submissions) : [];
+
+      if (room.phase === 1) {
+        if ($('challengeInput')) $('challengeInput').value = '';
+        showScreen('lobbyScreen');
+        renderLobbyPlayers(players);
+        $('startBtn').style.display = isHost && players.length >= 2 ? 'block' : 'none';
+      }
+
+      if (room.phase === 2) {
+        showScreen('submitScreen');
+        renderSubmitPhase(room, players, subs);
+      }
+
+      if (room.phase === 3) {
+        showScreen('gameScreen');
+        renderGame(room, players, subs);
+      }
+    }
+
+    // ─── LOBBY ────────────────────────────────────────────────
+    function renderLobbyPlayers(players) {
+      $('lobbyPlayers').innerHTML = players.map(p =>
+        `<div class="player-tag">${p.name === (isHost ? myName : '') ? '👑 ' : ''}${p.name}</div>`
+      ).join('');
+      $('playerCount').textContent = players.length;
+    }
+
+    window.startPhase2 = async function () {
+      await update(ref(db, `rooms/${roomCode}`), { phase: 2 });
+    }
+
+    // ─── SUBMIT PHASE ────────────────────────────────────────
+    function renderSubmitPhase(room, players, subs) {
+      const me = room.players?.[myName];
+      const done = players.filter(p => p.submitted).length;
+      const total = players.length;
+
+      $('submitProgress').textContent = `${done} / ${total} ont soumis`;
+      $('submitProgressFill').style.width = (done / total * 100) + '%';
+
+      if (me?.submitted) {
+        $('submitForm').style.display = 'none';
+        $('submitDone').style.display = 'block';
+      } else {
+        $('submitForm').style.display = 'block';
+        $('submitDone').style.display = 'none';
+      }
+
+      // Host sees launch button when all submitted
+      $('launchGameBtn').style.display = isHost && done === total && total >= 2 ? 'block' : 'none';
+    }
+
+    window.submitChallenge = async function () {
+      const text = $('challengeInput').value.trim();
+      const type = $('selectedType').value;
+      if (!text) { $('challengeInput').focus(); return; }
+
+      await push(ref(db, `rooms/${roomCode}/submissions`), { type, text });
+      await update(ref(db, `rooms/${roomCode}/players/${myName}`), { submitted: true });
+      $('challengeInput').value = '';
+    }
+
+    window.setType = function (type) {
+      $('selectedType').value = type;
+      $('typeDare').className = 'type-btn' + (type === 'dare' ? ' active-dare' : '');
+      $('typeTruth').className = 'type-btn' + (type === 'truth' ? ' active-truth' : '');
+    }
+
+    window.setMode = function (mode) {
+      $('selectedMode').value = mode;
+      ['Chill', 'Medium', 'Hard'].forEach(m => {
+        $(`mode${m}`).className = `diff-btn ${m.toLowerCase()}` + (mode === m.toLowerCase() ? ' active' : '');
+      });
+    }
+
+    window.suggestIdea = async function (e) {
+      // Use passed event or global event if available
+      const evt = e || (typeof event !== 'undefined' ? event : null);
+      const btn = (evt && evt.currentTarget) || document.querySelector('[onclick="suggestIdea()"]') || document.querySelector('[onclick="suggestIdea(event)"]');
+      const originalText = btn ? btn.innerText : "✨ IA (Aide)";
+      if (btn) btn.innerText = "Génération...";
+      const type = $('selectedType').value;
+      const mode = $('selectedMode').value;
+      const playMode = $('selectedPlayMode').value;
+
+      if (btn) {
+        btn.disabled = true;
+        btn.classList.add('loading-pulse');
+        btn.innerHTML = '🪄 L\'IA réfléchit...';
+      }
+
+      try {
+        const response = await fetch(`/api/generate?type=${type}&mode=${mode}&playMode=${playMode}`);
+        const data = await response.json();
+        if (data.text) {
+          $('challengeInput').value = data.text;
+        }
+      } catch (err) {
+        console.error("Erreur IA:", err);
+        $('challengeInput').value = "Désolé, l'IA a eu un petit hoquet...";
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.classList.remove('loading-pulse');
+          btn.innerText = originalText;
+        }
+      }
+    }
+
+    window.launchGame = async function () {
+      await update(ref(db, `rooms/${roomCode}`), { phase: 3, result: null });
+    }
+
+    // ─── GAME PHASE ───────────────────────────────────────────
+    function renderGame(room, players, subs) {
+      const remaining = subs.length - (room.usedCount || 0);
+      $('roundCounter').textContent = room.rounds || 0;
+      $('gagesCounter').textContent = remaining;
+
+      drawWheel(players, room.wheelAngle || 0);
+
+      // Show/hide spin button
+      if (isHost) {
+        $('spinBtn').style.display = remaining === 0 ? 'none' : 'block';
+        $('spinBtn').disabled = spinning || remaining === 0;
+        $('spinBtn').textContent = remaining === 0 ? '🎉 Plus de gages !' : '🎰 FAIRE TOURNER';
+      } else {
+        $('spinBtn').style.display = 'none';
+      }
+
+
+      $('hostOnlyHint').style.display = isHost ? 'none' : 'block';
+
+      if (room.result) {
+        showResult(room.result);
+      } else {
+        $('resultBox').classList.remove('show');
+      }
+
+      // Play Again Logic
+      if (remaining === 0 && !spinning) {
+        $('playAgainBox').style.display = 'block';
+        const readyPlayers = players.filter(p => p.readyNext);
+        $('readyPlayersList').innerHTML = readyPlayers.map(p => `<span class="player-tag">${p.name}</span>`).join('');
+        $('playAgainBtn').style.display = room.players?.[myName]?.readyNext ? 'none' : 'inline-block';
+        $('hostResetBtn').style.display = isHost && readyPlayers.length >= 1 ? 'inline-block' : 'none';
+      } else {
+        $('playAgainBox').style.display = 'none';
+      }
+
+      renderScores(players);
+
+    }
+
+    function drawWheel(players, angle) {
+      const canvas = $('wheel');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const cx = 140, cy = 140, r = 136;
+      const n = players.length;
+      if (n === 0) return;
+      const arc = (2 * Math.PI) / n;
+
+      ctx.clearRect(0, 0, 280, 280);
+
+      players.forEach((p, i) => {
+        const startAngle = angle + i * arc - Math.PI / 2;
+        const endAngle = startAngle + arc;
+
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, startAngle, endAngle);
+        ctx.closePath();
+        ctx.fillStyle = COLORS[i % COLORS.length];
+        ctx.fill();
+        ctx.strokeStyle = '#0a0a0f';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(startAngle + arc / 2);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#000';
+        ctx.font = `bold ${Math.min(14, 120 / n)}px 'Space Mono', monospace`;
+        ctx.fillText(p.name, r - 12, 5);
+        ctx.restore();
+      });
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, 16, 0, 2 * Math.PI);
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fill();
+      ctx.strokeStyle = '#ffcc00';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+
+    window.spinWheel = async function () {
+      if (spinning) return;
+
+      // Get fresh room data
+      const snap = await get(ref(db, `rooms/${roomCode}`));
+      const room = snap.val();
+      const players = Object.values(room.players || {});
+      const allSubs = Object.entries(room.submissions || {});
+      const usedKeys = room.usedKeys ? Object.values(room.usedKeys) : [];
+      const available = allSubs.filter(([k]) => !usedKeys.includes(k));
+
+      if (available.length === 0) return;
+
+      spinning = true;
+      $('spinBtn').disabled = true;
+      $('resultBox').classList.remove('show');
+
+      const extraSpins = (5 + Math.floor(Math.random() * 5)) * 2 * Math.PI;
+      const randomStop = Math.random() * 2 * Math.PI;
+      const totalSpin = extraSpins + randomStop;
+      const duration = 3000 + Math.random() * 1500;
+      const start = performance.now();
+      const startAngle = wheelAngle;
+
+      // Pick winner + challenge now (before animation)
+      const finalAngle = startAngle + totalSpin;
+      const n = players.length;
+      const arc = (2 * Math.PI) / n;
+      let normalized = ((-finalAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      const winnerIndex = Math.floor(normalized / arc) % n;
+      const winner = players[winnerIndex];
+      const [chosenKey, chosenSub] = available[Math.floor(Math.random() * available.length)];
+
+      function animate(now) {
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 4);
+        wheelAngle = startAngle + totalSpin * ease;
+
+        // Broadcast angle every few frames
+        if (Math.floor(elapsed / 50) !== Math.floor((elapsed - 16) / 50)) {
+          update(ref(db, `rooms/${roomCode}`), { wheelAngle });
+        }
+
+        drawWheel(players, wheelAngle);
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          wheelAngle = finalAngle;
+          spinning = false;
+
+          // Save result to Firebase
+          const newRounds = (room.rounds || 0) + 1;
+          const newScore = (winner.score || 0) + 1;
+          const newUsedKeys = { ...(room.usedKeys || {}), [chosenKey]: chosenKey };
+          const newUsedCount = Object.keys(newUsedKeys).length;
+
+          update(ref(db, `rooms/${roomCode}`), {
+            wheelAngle,
+            rounds: newRounds,
+            usedKeys: newUsedKeys,
+            usedCount: newUsedCount,
+            result: { player: winner.name, type: chosenSub.type, text: chosenSub.text }
+          });
+
+          update(ref(db, `rooms/${roomCode}/players/${winner.name}`), { score: newScore });
+        }
+      }
+      requestAnimationFrame(animate);
+    }
+
+    function showResult(result) {
+      $('resultPlayer').textContent = result.player;
+      const typeEl = $('resultType');
+      typeEl.textContent = result.type === 'dare' ? '💀 GAGE' : '🔮 VÉRITÉ';
+      typeEl.className = 'result-type ' + (result.type === 'dare' ? 'dare' : 'truth');
+      $('resultText').textContent = result.text;
+      $('resultBox').classList.add('show');
+      $('nextRoundBtn').style.display = isHost ? 'inline-block' : 'none';
+      launchConfetti();
+    }
+
+    window.nextRound = async function () {
+      await update(ref(db, `rooms/${roomCode}`), { result: null });
+    }
+
+    function renderScores(players) {
+      const sorted = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
+      $('scoreRows').innerHTML = sorted.map((p, i) => `
+      <div class="score-row">
+        <span class="score-name">${i === 0 ? '👑' : (i + 1) + '.'} ${p.name}${p.name === myName ? ' <em>(moi)</em>' : ''}</span>
+        <span class="score-count">${p.score || 0}×</span>
+      </div>
+    `).join('');
+    }
+
+    window.resetGame = async function () {
+      if (isHost) {
+        await remove(ref(db, `rooms/${roomCode}`));
+      } else {
+        await remove(ref(db, `rooms/${roomCode}/players/${myName}`));
+      }
+      const newUrl = new URL(window.location);
+      newUrl.searchParams.delete('room');
+      newUrl.searchParams.delete('name');
+      newUrl.searchParams.delete('token');
+      window.history.replaceState({}, '', newUrl);
+
+      location.reload();
+    }
+
+    window.markReady = async function () {
+      await update(ref(db, `rooms/${roomCode}/players/${myName}`), { readyNext: true });
+    }
+
+    window.replayRoom = async function () {
+      if (!isHost) return;
+      const snap = await get(ref(db, `rooms/${roomCode}`));
+      const room = snap.val();
+      const players = room.players || {};
+      const newPlayers = {};
+      
+      // Keep only players who clicked "Moi je rejoue"
+      Object.entries(players).forEach(([id, p]) => {
+        if (p.readyNext) {
+          newPlayers[id] = { name: p.name, score: 0, submitted: false, readyNext: false, token: p.token }; // reset state
+        }
+      });
+
+
+      await update(ref(db, `rooms/${roomCode}`), {
+        phase: 1,
+        players: newPlayers,
+        submissions: null,
+        usedKeys: null, usedCount: null,
+        result: null,
+        rounds: 0,
+        wheelAngle: 0
+      });
+    }
+
+
+    function launchConfetti() {
+      const colors = ['#ff3366', '#ffcc00', '#00ffaa', '#00aaff', '#aa00ff', '#ff6600'];
+      for (let i = 0; i < 50; i++) {
+        setTimeout(() => {
+          const el = document.createElement('div');
+          el.className = 'confetti-piece';
+          el.style.cssText = `left:${Math.random() * 100}vw;top:-20px;background:${colors[Math.floor(Math.random() * colors.length)]};animation-duration:${1.5 + Math.random() * 1.5}s;width:${6 + Math.random() * 8}px;height:${6 + Math.random() * 8}px`;
+          document.body.appendChild(el);
+          setTimeout(() => el.remove(), 3000);
+        }, i * 30);
+      }
+    }
+
+    // Enter key support
+    document.addEventListener('DOMContentLoaded', () => {
+      $('hostName').addEventListener('keydown', e => e.key === 'Enter' && createRoom());
+      $('joinCode').addEventListener('keydown', e => e.key === 'Enter' && joinRoom());
+      $('joinName').addEventListener('keydown', e => e.key === 'Enter' && joinRoom());
+      $('challengeInput').addEventListener('keydown', e => e.key === 'Enter' && submitChallenge());
+
+      // Auto-join from URL
+      const params = new URLSearchParams(window.location.search);
+      const roomParam = params.get('room');
+      const nameParam = params.get('name');
+      
+      if (roomParam) {
+        $('joinCode').value = roomParam;
+        switchTab('join');
+        
+        if (nameParam) {
+          $('joinName').value = nameParam;
+          joinRoom();
+        } else {
+          // It's a "share link", just focus the name input
+          $('joinName').focus();
+        }
+      }
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --card: #12121a;
+      --border: #2a2a3a;
+      --accent: #ff3366;
+      --accent2: #ffcc00;
+      --accent3: #00ffaa;
+      --text: #f0f0ff;
+      --muted: #666680;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse 60% 40% at 20% 20%, rgba(255, 51, 102, 0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 50% at 80% 80%, rgba(0, 255, 170, 0.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      position: relative;
+      z-index: 1;
+    }
+
+    h1 {
+      font-family: 'Bebas Neue', cursive;
+      font-size: clamp(3rem, 12vw, 5.5rem);
+      text-align: center;
+      line-height: 0.9;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 50%, var(--accent3) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: 2px;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.65rem;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      margin-bottom: 30px;
+    }
+
+    /* SCREENS */
+    .screen {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .screen.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+      }
+    }
+
+    /* CARDS */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px;
+      margin-bottom: 14px;
+    }
+
+    .card-title {
+      font-family: 'Bebas Neue', cursive;
+      font-size: 1.3rem;
+      letter-spacing: 2px;
+      color: var(--accent2);
+      margin-bottom: 14px;
+    }
+
+    .info-text {
+      color: var(--muted);
+      font-size: 0.7rem;
+      line-height: 1.6;
+      margin-bottom: 14px;
+    }
+
+    /* INPUTS */
+    input[type="text"] {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 11px 14px;
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+
+    input[type="text"]::placeholder {
+      color: var(--muted);
+    }
+
+    /* BUTTONS */
+    .btn {
+      display: inline-block;
+      padding: 11px 24px;
+      border-radius: 8px;
+      border: none;
+      font-family: 'Bebas Neue', cursive;
+      font-size: 1.05rem;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #ff0044;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(255, 51, 102, 0.4);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--accent2);
+      border: 1px solid var(--accent2);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 204, 0, 0.1);
+    }
+
+    .btn-green {
+      background: var(--accent3);
+      color: #000;
+    }
+
+    .btn-green:hover {
+      background: #00ddaa;
+      transform: translateY(-1px);
+    }
+
+    .btn-full {
+      width: 100%;
+      display: block;
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    /* ROOM CODE */
+    .room-code-big {
+      font-family: 'Bebas Neue', cursive;
+      font-size: 3.5rem;
+      letter-spacing: 10px;
+      color: var(--accent2);
+      text-align: center;
+      text-shadow: 0 0 30px rgba(255, 204, 0, 0.5);
+      margin: 10px 0;
+    }
+
+    /* TABS */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .tab.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(255, 51, 102, 0.1);
+    }
+
+    /* PLAYERS */
+    .players-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+      min-height: 30px;
+    }
+
+    .player-tag {
+      background: rgba(255, 51, 102, 0.15);
+      border: 1px solid rgba(255, 51, 102, 0.3);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.73rem;
+      color: var(--accent);
+    }
+
+    /* PROGRESS */
+    .progress-bar {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 12px 0;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      transition: width 0.4s ease;
+    }
+
+    /* TYPE TOGGLE */
+    .type-toggle {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .type-btn {
+      flex: 1;
+      padding: 9px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .type-btn.active-dare {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(255, 51, 102, 0.1);
+    }
+
+    .type-btn.active-truth {
+      border-color: #aa88ff;
+      color: #aa88ff;
+      background: rgba(170, 136, 255, 0.1);
+    }
+
+    .playmode-toggle {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 4px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .pm-btn {
+      flex: 1;
+      padding: 6px;
+      border-radius: 5px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.65rem;
+      font-family: 'Space Mono', monospace;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 1px;
+    }
+
+    .pm-btn.active {
+      background: var(--border);
+      color: var(--text);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    /* WHEEL */
+    .wheel-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .wheel-wrapper {
+      position: relative;
+      width: 280px;
+      height: 280px;
+    }
+
+    .wheel-arrow {
+      position: absolute;
+      top: -16px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 12px solid transparent;
+      border-right: 12px solid transparent;
+      border-top: 28px solid var(--accent2);
+      z-index: 10;
+      filter: drop-shadow(0 0 8px rgba(255, 204, 0, 0.8));
+    }
+
+    canvas#wheel {
+      border-radius: 50%;
+      box-shadow: 0 0 40px rgba(255, 51, 102, 0.2);
+    }
+
+    .wheel-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 28px;
+      height: 28px;
+      background: var(--bg);
+      border: 3px solid var(--accent2);
+      border-radius: 50%;
+      z-index: 10;
+    }
+
+    /* RESULT */
+    .result-box {
+      display: none;
+      background: var(--card);
+      border: 2px solid var(--accent);
+      border-radius: 16px;
+      padding: 24px;
+      text-align: center;
+      animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      margin-bottom: 16px;
+    }
+
+    .result-box.show {
+      display: block;
+    }
+
+    @keyframes popIn {
+      from {
+        transform: scale(0.8);
+        opacity: 0;
+      }
+
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .result-player {
+      font-family: 'Bebas Neue', cursive;
+      font-size: 2.2rem;
+      letter-spacing: 4px;
+      color: var(--accent2);
+    }
+
+    .result-type {
+      font-size: 0.65rem;
+      letter-spacing: 4px;
+      padding: 3px 12px;
+      border-radius: 20px;
+      display: inline-block;
+      margin: 6px 0 12px;
+    }
+
+    .result-type.dare {
+      background: rgba(255, 51, 102, 0.2);
+      color: var(--accent);
+      border: 1px solid rgba(255, 51, 102, 0.3);
+    }
+
+    .result-type.truth {
+      background: rgba(170, 136, 255, 0.2);
+      color: #aa88ff;
+      border: 1px solid rgba(170, 136, 255, 0.3);
+    }
+
+    .result-text {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      border-left: 3px solid var(--accent);
+      margin-bottom: 16px;
+    }
+
+    .result-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* SCOREBOARD */
+    .score-title {
+      font-family: 'Bebas Neue', cursive;
+      font-size: 0.9rem;
+      letter-spacing: 3px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      text-align: center;
+    }
+
+    .score-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 12px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.02);
+      font-size: 0.72rem;
+      margin-bottom: 3px;
+    }
+
+    .score-row em {
+      color: var(--muted);
+      font-style: normal;
+    }
+
+    .score-count {
+      color: var(--accent2);
+      font-weight: bold;
+    }
+
+    /* COUNTER BAR */
+    .counter-bar {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 16px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      font-size: 0.65rem;
+      color: var(--muted);
+      margin-bottom: 16px;
+      gap: 10px;
+    }
+
+    .counter-item {
+      text-align: center;
+    }
+
+    .counter-val {
+      color: var(--accent2);
+      font-family: 'Bebas Neue', cursive;
+      font-size: 1.3rem;
+      display: block;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 0.68rem;
+      text-align: center;
+      letter-spacing: 1px;
+      margin-top: 8px;
+    }
+
+    /* CONFETTI */
+    .confetti-piece {
+      position: fixed;
+      border-radius: 2px;
+      animation: confettiFall linear forwards;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    @keyframes confettiFall {
+      0% {
+        transform: translateY(-20px) rotate(0deg);
+        opacity: 1;
+      }
+
+      100% {
+        transform: translateY(100vh) rotate(720deg);
+        opacity: 0;
+      }
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 16px 0;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .input-row input {
+      flex: 1;
+    }
+
+    .badge-done {
+      color: var(--accent3);
+      font-size: 0.7rem;
+      letter-spacing: 2px;
+      margin-top: 8px;
+      display: none;
+    }
+
+    /* DIFFICULTY SELECTOR */
+    .difficulty-selector {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 4px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .diff-btn {
+      flex: 1;
+      padding: 6px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .diff-btn.active {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    .diff-btn.active.chill {
+      color: #00ffaa;
+    }
+
+    .diff-btn.active.hard {
+      color: #ff3366;
+    }
+
+    /* AI SECTION UX */
+    .ai-section {
+      margin-top: 24px;
+      padding: 16px;
+      background: rgba(147, 51, 234, 0.05);
+      border: 1px dashed rgba(147, 51, 234, 0.3);
+      border-radius: 12px;
+      position: relative;
+    }
+
+    .ai-section-title {
+      font-family: 'Bebas Neue', cursive;
+      font-size: 0.85rem;
+      letter-spacing: 2px;
+      color: #aa88ff;
+      margin-bottom: 12px;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .ai-section-title::before,
+    .ai-section-title::after {
+      content: '';
+      height: 1px;
+      flex: 1;
+      background: rgba(170, 136, 255, 0.2);
+    }
+
+    @keyframes pulse-purple {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(147, 51, 234, 0.7); }
+      70% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(147, 51, 234, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(147, 51, 234, 0); }
+    }
+
+    .loading-pulse {
+      animation: pulse-purple 1.5s infinite;
+      background: rgba(147, 51, 234, 0.4) !important;
+      border-color: #9333ea !important;
+    }
+
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div style="text-align: center; margin-top: 20px;">
+      <img src="logo.png" alt="La Roue du Chaos Logo" style="width: 150px; height: 150px; border-radius: 50%; box-shadow: 0 0 30px rgba(255, 51, 102, 0.4); border: 2px solid var(--border); background-color: white;">
+    </div>
+    <h1>LA ROUE<br>DU CHAOS</h1>
+    <p class="subtitle">vérité ou gage · multijoueur</p>
+
+    <!-- ══ SCREEN: HOME ══ -->
+    <div class="screen active" id="homeScreen">
+      <div class="tabs">
+        <button class="tab active" id="tabCreate" onclick="switchTab('create')">🎮 Créer un salon</button>
+        <button class="tab" id="tabJoin" onclick="switchTab('join')">🔗 Rejoindre</button>
+      </div>
+
+      <div id="panelCreate">
+        <div class="card">
+          <div class="card-title">Créer le salon</div>
+          <p class="info-text">Tu seras l'hôte. Tu contrôles la roue et invites les autres avec un code.</p>
+          <input type="text" id="hostName" placeholder="Ton prénom..." maxlength="20" />
+          <button class="btn btn-primary btn-full" onclick="createRoom()">Créer →</button>
+        </div>
+      </div>
+
+      <div id="panelJoin" style="display:none">
+        <div class="card">
+          <div class="card-title">Rejoindre</div>
+          <p class="info-text">Entre le code donné par l'hôte.</p>
+          <input type="text" id="joinName" placeholder="Ton prénom..." maxlength="20" style="margin-bottom:10px" />
+          <input type="text" id="joinCode" placeholder="Code du salon (ex: AB3X)" maxlength="6"
+            style="text-transform:uppercase" />
+          <button class="btn btn-green btn-full" onclick="joinRoom()">Rejoindre →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SCREEN: LOBBY ══ -->
+    <div class="screen" id="lobbyScreen">
+      <div class="card" style="text-align:center">
+        <div class="card-title">Code du salon</div>
+        <div class="room-code-big" id="roomCodeDisplay">----</div>
+        <p class="info-text" style="text-align:center">Partage ce code à tes amis pour qu'ils rejoignent !</p>
+        <p style="font-size:0.7rem;color:var(--muted)">Connecté en tant que <strong style="color:var(--accent2)"
+            id="myNameDisplay"></strong></p>
+      </div>
+      <div class="card">
+        <div class="card-title">Joueurs connectés <span id="playerCount" style="color:var(--accent)">0</span></div>
+        <div class="players-list" id="lobbyPlayers"></div>
+      </div>
+      <button class="btn btn-primary btn-full" id="startBtn" onclick="startPhase2()" style="display:none">
+        Tout le monde est là → Suivant
+      </button>
+      <p class="hint" id="waitHostHint">En attente de l'hôte...</p>
+    </div>
+
+    <!-- ══ SCREEN: SUBMIT ══ -->
+    <div class="screen" id="submitScreen">
+      <div class="card">
+        <div class="card-title">🎭 Soumission secrète</div>
+        <p class="info-text">Chacun soumet <strong style="color:var(--accent2)">un gage ou une vérité</strong> en
+          secret. Personne ne verra qui a écrit quoi !</p>
+        <div class="progress-bar">
+          <div class="progress-fill" id="submitProgressFill" style="width:0%"></div>
+        </div>
+        <p style="font-size:0.7rem;color:var(--muted);text-align:center" id="submitProgress">0 / 0 ont soumis</p>
+      </div>
+
+      <div class="card" id="submitForm">
+        <div class="type-toggle">
+          <button class="type-btn active-dare" id="typeDare" onclick="setType('dare')">💀 GAGE</button>
+          <button class="type-btn" id="typeTruth" onclick="setType('truth')">🔮 VÉRITÉ</button>
+        </div>
+        <input type="hidden" id="selectedType" value="dare" />
+        
+        <div class="input-row">
+          <input type="text" id="challengeInput" placeholder="Ton gage ou ta question secrète..." maxlength="150" />
+          <button class="btn btn-primary" onclick="submitChallenge()">OK</button>
+        </div>
+
+        <div class="ai-section">
+          <div class="ai-section-title">✨ GÉNÉRER AVEC L'IA</div>
+          
+          <p class="info-text" style="text-align:center; margin-bottom:8px; font-size:0.6rem">L'IA s'adapte à ton mode de jeu et à la difficulté choisie :</p>
+
+          <div class="playmode-toggle">
+            <button class="pm-btn active" id="playModeIRL" onclick="setPlayMode('irl')">🏠 IRL</button>
+            <button class="pm-btn" id="playModeOnline" onclick="setPlayMode('online')">🌐 EN LIGNE</button>
+          </div>
+          <input type="hidden" id="selectedPlayMode" value="irl" />
+
+          <div class="difficulty-selector">
+            <button class="diff-btn chill" id="modeChill" onclick="setMode('chill')">Chill</button>
+            <button class="diff-btn medium active" id="modeMedium" onclick="setMode('medium')">Medium</button>
+            <button class="diff-btn hard" id="modeHard" onclick="setMode('hard')">Hard</button>
+          </div>
+          <input type="hidden" id="selectedMode" value="medium" />
+
+          <button class="btn btn-secondary btn-full"
+            style="font-size:0.75rem; padding:8px; background: rgba(147, 51, 234, 0.1); border-color: rgba(147, 51, 234, 0.4);" 
+            onclick="suggestIdea()">🪄 Propose-moi un truc !</button>
+        </div>
+      </div>
+
+      <div id="submitDone" style="display:none;text-align:center;padding:20px;">
+        <p style="color:var(--accent3);font-family:'Bebas Neue',cursive;font-size:1.5rem;letter-spacing:3px">✓ SOUMIS EN
+          SECRET</p>
+        <p class="info-text" style="margin-top:8px">En attente des autres joueurs...</p>
+      </div>
+
+      <button class="btn btn-green btn-full" id="launchGameBtn" onclick="launchGame()" style="display:none">
+        🎰 Lancer la roue !
+      </button>
+    </div>
+
+    <!-- ══ SCREEN: GAME ══ -->
+    <div class="screen" id="gameScreen">
+      <div class="counter-bar">
+        <div class="counter-item"><span class="counter-val" id="roundCounter">0</span>Tours joués</div>
+        <div class="counter-item"><span class="counter-val" id="gagesCounter">0</span>Gages restants</div>
+      </div>
+
+      <div class="wheel-section">
+        <div class="wheel-wrapper">
+          <div class="wheel-arrow"></div>
+          <canvas id="wheel" width="280" height="280"></canvas>
+          <div class="wheel-center"></div>
+        </div>
+        <button class="btn btn-primary" id="spinBtn" onclick="spinWheel()">🎰 FAIRE TOURNER</button>
+        <p class="hint" id="hostOnlyHint" style="display:none">Seul l'hôte peut faire tourner la roue</p>
+      </div>
+
+      <div class="result-box" id="resultBox">
+        <div class="result-player" id="resultPlayer"></div>
+        <div class="result-type" id="resultType"></div>
+        <div class="result-text" id="resultText"></div>
+        <div class="result-actions">
+          <button class="btn btn-primary" id="nextRoundBtn" onclick="nextRound()">Tour suivant 🔄</button>
+        </div>
+      </div>
+
+      <!-- Play Again Box -->
+      <div id="playAgainBox" class="card" style="display:none; margin-top:20px; text-align:center; border-color:var(--accent3)">
+        <div class="card-title" style="color:var(--accent3)">🎉 Fin de la partie !</div>
+        <p class="info-text">Tout le monde veut recommencer ?</p>
+        <div class="players-list" id="readyPlayersList" style="justify-content:center; margin-bottom:15px"></div>
+        <button class="btn btn-green" id="playAgainBtn" onclick="markReady()">✋ Moi je rejoue !</button>
+        <button class="btn btn-primary" id="hostResetBtn" onclick="replayRoom()" style="display:none">🎰 Lancer nouveau salon</button>
+        <button class="btn btn-secondary" onclick="resetGame()" style="margin-top:10px">Quitter</button>
+      </div>
+
+
+      <div class="divider"></div>
+      <div class="score-title">— TABLEAU DES VICTIMES —</div>
+      <div id="scoreRows"></div>
+    </div>
+  </div>
+
+  <script>
+    function switchTab(tab) {
+      document.getElementById('panelCreate').style.display = tab === 'create' ? 'block' : 'none';
+      document.getElementById('panelJoin').style.display = tab === 'join' ? 'block' : 'none';
+      document.getElementById('tabCreate').className = 'tab' + (tab === 'create' ? ' active' : '');
+      document.getElementById('tabJoin').className = 'tab' + (tab === 'join' ? ' active' : '');
+    }
+
+    function setPlayMode(pm) {
+      document.getElementById('selectedPlayMode').value = pm;
+      document.getElementById('playModeIRL').className = 'pm-btn' + (pm === 'irl' ? ' active' : '');
+      document.getElementById('playModeOnline').className = 'pm-btn' + (pm === 'online' ? ' active' : '');
+    }
+  </script>
+</body>
+
+</html>

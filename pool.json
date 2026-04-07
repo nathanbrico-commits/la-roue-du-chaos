@@ -1,0 +1,310 @@
+{
+  "pool": {
+    "irl": {
+      "chill": {
+        "dare": [
+          "Danse sans musique pendant 10 secondes.",
+          "Chante un refrain de Disney.",
+          "Fais semblant d'être un robot.",
+          "Touche ton nez avec ta langue.",
+          "Fais le tour de la pièce en sautillant.",
+          "Imite un animal au hasard.",
+          "Raconte une anecdote de 10 secondes sur ton petit-déjeuner.",
+          "Imite un animal en parlant pendant 30 secondes."
+        ],
+        "truth": [
+          "Raconte ton dernier rêve bizarre.",
+          "Quel est ton animal de compagnie idéal ?",
+          "Ta chanson préférée du moment ?",
+          "Ton plus lointain souvenir ?",
+          "Plutôt lever tôt ou coucher tard ?",
+          "Ta plus grande phobie ?",
+          "Quelle est la chose la plus bizarre que tu collectionnes ?",
+          "Imite un animal pour une minute sans parler."
+        ]
+      },
+      "medium": {
+        "dare": [
+          "Imite un robot en fin de batterie pendant deux minutes.",
+          "Mime une bagarre contre un fantôme pendant trente secondes.",
+          "Mime une poule pondant un œuf devant tout le monde.",
+          "Fais le poirier pendant que quelqu'un te lit une recette.",
+          "Fais une chorégraphie improvisée sur la musique de ton choix.",
+          "Fais une démonstration de combat imaginaire contre une mouche.",
+          "Chante une chanson d'amour à un crayon.",
+          "Fais un discours politique convaincant sur un sujet inutile."
+        ],
+        "truth": [
+          "Imite un animal pour une minute sans parler.",
+          "Ta plus grosse peur ?",
+          "Quel mensonge as-tu dit à une personne présente ici ?",
+          "Quelle est la chose la plus illégale que tu aies faite ?",
+          "Quelle est la chose la plus étrange que tu caches ?",
+          "Quel est ton avis honnête sur le look d'un joueur ?",
+          "Quel secret gardes-tu précieusement pour ne blesser personne ici ?",
+          "Ton plus grand regret ?"
+        ]
+      },
+      "hard": {
+        "dare": [
+          "Imite un animal sauvage, sans le nommer.",
+          "Fais un discours enflammé pour déclarer ta flamme à un meuble.",
+          "Fais une demande en mariage hilarante à un inconnu proche.",
+          "Lèche la semelle de la chaussure d'un autre joueur.",
+          "Fais un discours passionné pour vendre une chaise vide.",
+          "Laisse le groupe rédiger un tweet absurde sur ton compte.",
+          "Envoie un message vocal \"Je t'aime\" à ton ex.",
+          "Lèche la semelle de la chaussure d'un joueur."
+        ],
+        "truth": [
+          "Quelle est la personne que tu aimes le moins ici ?",
+          "Quel est le secret le plus honteux de ton historique internet ?",
+          "Quelle est la chose la plus illégale que tu aies faite ?",
+          "Quel est le secret le plus gênant de ton téléphone ?",
+          "Quel secret honteux effacerais-tu immédiatement de ton historique internet ?",
+          "Imite un animal sauvage pendant 5 minutes.",
+          "Quel est le message le plus honteux de ton téléphone ?",
+          "Quel est le message le plus honteux de ton historique ?"
+        ]
+      }
+    },
+    "online": {
+      "chill": {
+        "dare": [
+          "Fais une sérénade à ton objet préféré avec un accent.",
+          "Raconte ta journée comme si tu étais un détective noir.",
+          "Raconte une anecdote embarrassante comme si c'était un exploit.",
+          "Raconte ton pire rendez-vous amoureux en utilisant uniquement des émojis.",
+          "Imite le cri d'un animal étrange pendant dix secondes.",
+          "Imite le cri d'un animal étrange pendant trente secondes.",
+          "Envoie-moi une photo de ton animal de compagnie le plus bizarre.",
+          "Envoie-moi une photo de ton animal de compagnie."
+        ],
+        "truth": [
+          "Quelle est la dernière chose que tu as cherchée sur Google ?",
+          "Quelle est ta recherche la plus honteuse dans ton historique ?",
+          "Quel est le dernier achat inutile dont tu es fier ?",
+          "Quelle est la chanson que tu écoutes en boucle secrètement ?",
+          "Quelle est la dernière recherche Google dont tu as honte ?",
+          "Quelle est la pire décision que tu aies prise récemment ?",
+          "Quelle est la dernière recherche Google que tu regrettes ?",
+          "Quelle est la dernière application que tu as ouverte ?"
+        ]
+      },
+      "medium": {
+        "dare": [
+          "Fais un discours politique passionné pour vanter un objet inutile.",
+          "Invente et vends-nous un objet inutile en deux minutes.",
+          "Imite le bruit d'un animal domestique essayant de parler humain.",
+          "Fais une publicité convaincante pour un objet inutile devant toi.",
+          "Imite un commentateur animalier décrivant les mouvements d'un insecte.",
+          "Invente et déclame une prophétie absurde sur le prochain tour.",
+          "Fais une publicité télévisée absurde pour ton objet le plus proche.",
+          "Fais une déclaration d'amour passionnée à ton objet le plus proche."
+        ],
+        "truth": [
+          "Quelle est la personne ici présente que tu trahirais ?",
+          "Quelle est la pire honte que tu caches aux autres ?",
+          "Quel est le secret inavouable que tu caches à tes parents ?",
+          "Quelle est la personne ici présente que tu as jalousée ?",
+          "Quelle est la pire chanson que tu chantes sous la douche ?",
+          "Quel est le nom de ton dernier \"crush\" secret ?",
+          "Quelle est la recherche Google la plus gênante de ton historique ?",
+          "Décris ton rêve le plus étrange en détail."
+        ]
+      },
+      "hard": {
+        "dare": [
+          "Envoie un message \"Je t'aime\" à ton dernier contact Tinder.",
+          "Change ta photo de profil par celle d'un légume.",
+          "Fais le reste de la partie en parlant uniquement italien.",
+          "Fais tout le reste de la partie avec un accent québécois.",
+          "Joue toute la partie avec une cuillère dans la bouche.",
+          "Commente le dernier post Instagram de ton ex avec \"Miam\".",
+          "Appelle ton dernier contact et imite un alien mourant.",
+          "Fais une vidéo de toi chantant une chanson d'enfant."
+        ],
+        "truth": [
+          "Quelle est la chose la plus humiliante dans tes notes ?",
+          "Partage ta plus grande peur, sans explication.",
+          "Quelle est la recherche la plus honteuse de ton historique ?",
+          "Partage ta plus grande peur, sans excuses.",
+          "Montre ton historique de recherche Google des deux dernières heures.",
+          "Montre ton historique de recherche Google des dernières 24h.",
+          "Quelle est ta recherche Google la plus gênante récemment ?",
+          "Imite ton animal préféré pendant 60 secondes."
+        ]
+      }
+    }
+  },
+  "history": {
+    "irl": {
+      "chill": {
+        "dare": [
+          "Fais une grimace drôle."
+        ],
+        "truth": [
+          "Quelle est ta couleur préférée ?",
+          "Ton plat préféré ?"
+        ]
+      },
+      "medium": {
+        "dare": [
+          "Chante la prochaine phrase que tu prononces comme un opéra.",
+          "Fais une déclaration d'amour théâtrale à ton verre vide.",
+          "Fais un discours enflammé pour convaincre de manger un citron.",
+          "Raconte une anecdote embarrassante avec un accent d'aristocrate.",
+          "Raconte une anecdote embarrassante avec un ton de présentateur télé.",
+          "Fais une déclaration d'amour théâtrale à un objet de la pièce.",
+          "Fais le bruit d'une cafetière en panne pendant une minute.",
+          "Parle avec un accent étranger jusqu'à ton prochain tour.",
+          "Invente une excuse absurde pour quitter la pièce immédiatement.",
+          "Imite un présentateur TV commentant la vie d'un autre joueur.",
+          "Imite le bruit d'une machine à café en panne.",
+          "Fais semblant d'être un robot en panne de batterie.",
+          "Fais un portrait chinois de chaque joueur avec des fruits.",
+          "Imite un animal blessé jusqu'à ton prochain tour.",
+          "Fais une interview imaginaire de ton pied gauche bruyant."
+        ],
+        "truth": [
+          "Ton plus grand secret de cette année ?",
+          "Ta plus grosse peur ?",
+          "Qui était ton premier amour ?",
+          "Chose la plus ridicule faite par amour ?",
+          "Quel joueur ici connais-tu le mieux ?",
+          "Quelle est ta pire habitude ?",
+          "Si tu gagnais au loto demain, que ferais-tu ?",
+          "Ton plus grand regret ?",
+          "Quel est le mensonge le plus absurde que tu aies dit ?",
+          "Quel est le dernier mensonge que tu as dit ici ?",
+          "Quel mensonge as-tu dit à tes parents cette année ?",
+          "Quelle est la chose la plus bizarre que tu collectionnes ?"
+        ]
+      },
+      "hard": {
+        "dare": [
+          "Défi piquant (mange un truc fort).",
+          "Appelle un ami et raccroche sans parler.",
+          "Raconte une anecdote embarrassante.",
+          "Laisse les autres envoyer un emoji à ton dernier contact.",
+          "Échange un vêtement avec la personne à ta droite.",
+          "Fais une chorégraphie sur une chanson choisie par les autres.",
+          "Laisse quelqu'un te maquiller les yeux fermés.",
+          "Sors dehors et cris 'Le Chaos arrive !'."
+        ],
+        "truth": [
+          "Plus gros mensonge aux parents ?",
+          "Plus grand regret ?",
+          "Chose la plus osée faite ?",
+          "Coup de foudre pour quelqu'un ici ?",
+          "As-tu déjà triché à un jeu ?",
+          "Quel est ton plus gros complexe ?",
+          "Raconte ton moment le plus gênant en public."
+        ]
+      }
+    },
+    "online": {
+      "chill": {
+        "dare": [
+          "Envoie-moi ta plus folle blague improvisée.",
+          "Invente une théorie du complot absurde sur ton voisin.",
+          "Fais deviner un métier célèbre uniquement en faisant des bruits.",
+          "Fais deviner un objet de ta pièce en le dessinant.",
+          "Fais visiter ta pièce en mode agent immobilier très enthousiaste.",
+          "Invente et déclame une publicité absurde pour un objet inutile.",
+          "Fais une démonstration de ton meilleur talent inutile en direct.",
+          "Fais une démonstration de ton meilleur pas de danse assis.",
+          "Fais une visite guidée humoristique de ton bureau en anglais.",
+          "Fais une démonstration de vente absurde pour un objet inutile.",
+          "Invente un nom de super-héros ridicule pour chaque joueur présent.",
+          "Décris ton plat préféré en utilisant uniquement des emojis.",
+          "Réponds à une question existentielle en GIF.",
+          "Fais le commentaire sportif dramatique de ton activité actuelle.",
+          "Invente un surnom ridicule pour chaque joueur présent ici."
+        ],
+        "truth": [
+          "Ta série préférée du moment ?",
+          "Ton emoji le plus utilisé ?",
+          "Raconte ton dernier rêve bizarre.",
+          "Quel est ton animal de compagnie idéal ?",
+          "Quel est ton fond d'écran actuel ?",
+          "Ta chanson honteuse préférée ?",
+          "Le dernier truc que tu as acheté en ligne ?",
+          "Es-tu en pyjama actuellement ?"
+        ]
+      },
+      "medium": {
+        "dare": [
+          "Chante les paroles d'une chanson connue en style opéra.",
+          "Chante la météo comme si c'était une tragédie grecque.",
+          "Fais semblant d'être un présentateur télé expliquant une recette absurde.",
+          "Raconte ta journée comme si tu étais un espion infiltré.",
+          "Raconte ta journée comme si tu étais un espion russe.",
+          "Chante ton dernier message reçu comme une opéra dramatique.",
+          "Décris ton plat préféré en utilisant uniquement des onomatopées.",
+          "Envoie une photo de ton plat le plus raté.",
+          "Fais le bruit d'une imprimante qui s'enraye pendant 30 secondes.",
+          "Invente un nouveau langage et traduis ta dernière pensée.",
+          "Raconte ta journée comme si tu étais un agent secret.",
+          "Fais le commentaire sportif d'un objet banal de ta pièce.",
+          "Mime un animal domestique qui essaie d'utiliser un ordinateur.",
+          "Imite un animal en expliquant ta théorie sur les extraterrestres.",
+          "Imite un présentateur météo annonçant une apocalypse de confettis."
+        ],
+        "truth": [
+          "Quelle est la chose la plus illégale que tu aies faite ?",
+          "Quelle est la chose la plus étrange dans ton historique ?",
+          "Quelle est la dernière recherche Google dont tu as honte ?",
+          "Quelle est la pire chose que tu as volée par accident ?",
+          "Quelle est la chose la plus bizarre que tu collectionnes ?",
+          "Quelle est la chose la plus bizarre que tu manges ?",
+          "Imite un animal pour 30 secondes.",
+          "Quelle est la pire décision que tu as prise récemment ?",
+          "Quelle est la pire chose que tu aies dite sur quelqu'un ?",
+          "Quel est le mensonge le plus gros que tu aies raconté ?",
+          "Partage ta photo la plus embarrassante en ligne.",
+          "Quelle est ta pire honte numérique lors d'un appel visio ?",
+          "Quel est le message le plus gênant que tu regrettes d'avoir envoyé ?",
+          "Partage ta blague la plus embarrassante, en direct.",
+          "Quel est le message que tu regrettes d'avoir envoyé ?"
+        ]
+      },
+      "hard": {
+        "dare": [
+          "Change ton pseudo pour \"Je suis un grille-pain\" jusqu'au matin.",
+          "Chante l'hymne national en remplaçant les paroles par \"miaou\".",
+          "Change ton pseudo pour le nom de ton premier amour.",
+          "Change ton pseudo par \"Je suis une huître narcissique\".",
+          "Renomme ton groupe WhatsApp par le nom de ton crush.",
+          "Mets ton écran à l'envers et finis la partie ainsi.",
+          "Change ta photo de profil pour une photo de bébé.",
+          "Raconte ta pire honte à ton dernier contact WhatsApp.",
+          "Fais une danse ridicule, envoie une photo.",
+          "Fais le reste de la partie en murmurant comme un espion.",
+          "Envoie un message vocal \"J'ai tout avoué\" à ta mère.",
+          "Fais une déclaration d'amour passionnée à ton objet préféré.",
+          "Partage ton écran et lis ton historique de recherche Google.",
+          "Invente et raconte une théorie du complot sur ton voisin.",
+          "Envoie un message gênant à ton ex : \"Tu me manques\"."
+        ],
+        "truth": [
+          "Quelle est la personne ici que tu pourrais trahir ?",
+          "Quel est le secret que tu caches à tous ici ?",
+          "Quelle est la pire chose que tu as volée par erreur ?",
+          "Quelle est la personne ici que tu pourrais détester secrètement ?",
+          "Quel est le dernier nom que tu as bloqué et pourquoi ?",
+          "Quelle est la pire chose que tu aies dite sur quelqu'un ?",
+          "Lis à voix haute le dernier message envoyé à ton ex.",
+          "Quel est le mensonge le plus grave que tu aies dit ?",
+          "Quelle est la personne ici que tu bloques sur Instagram ?",
+          "Quelle est la personne ici que tu détestes secrètement ?",
+          "Quel est le mensonge le plus grave que tu as dit ?",
+          "Partage le dernier message envoyé à ton ex ou crush.",
+          "Quelle est la photo la plus honteuse de ton téléphone ?",
+          "Quelle est la personne ici dont tu détestes le style ?",
+          "Montre ton écran et ouvre ton dernier onglet privé."
+        ]
+      }
+    }
+  }
+}
